@@ -50,8 +50,9 @@ def read_config(config_file):
 
     config = {}
     for l in lines[1:]:
+        l = l.replace('\n', ' ');
         key, value = l.split(':')
-        config[key.strip(' ')] = value[:-1].strip(' ')
+        config[key.strip(' ')] = value.strip(' ')
     return config
 
 
