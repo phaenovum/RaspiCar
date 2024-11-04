@@ -36,7 +36,6 @@ def lcd_print(txt):
 #---------------------------------------------------------------------------    
 def read_config(config_file):
     # Read config file
-    files = os.listdir()
     if config_file not in os.listdir():
         cfg = open(config_file, "w")
         cfg.write("RaspiCar Ctrl config file\n")
