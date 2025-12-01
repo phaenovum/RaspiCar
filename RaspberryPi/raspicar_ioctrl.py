@@ -1,16 +1,18 @@
 """
-Modul: raspicar_io.py
+Modul: raspicar_ioctrl.py
 I/O interface for the RaspiCar
 Runs battery voltage control and system shut down as background processes
+This version 2 of IoCtrl is based on the RPi.GPIO library (and does not require PIGPIO)
 
 - Class: IoCtrl
 - Methods: send_msg, clear_display, set_led_green, set_led_red, set_lidar_pwr, close
 
-SLW 27-09-2021
+SLW 02-12-2023
+Last update: 01-12-2025
 """
 
+import RPi.GPIO as GPIO
 import time
-import pigpio
 import serial
 import threading
 import os
@@ -27,9 +29,11 @@ BAT_STATUS_SHUTDOWN_PENDING    5   // 'SP', shutdown was confirmed, waiting for 
 class IoCtrl:
        
     def __init__(self):
+        GPIO.setwarnings(False)
+        GPIO.setmode(GPIO.BCM)
         # pin definitions
-        _PIN_LED_RED = 6
-        _PIN_LED_GREEN = 13
+        _PIN_LED_RED = 13
+        _PIN_LED_GREEN = 6
         _PIN_LIDAR_PWR = 21
         _serial_port = "/dev/ttyUSB0"
         # initiate ports
@@ -39,21 +43,14 @@ class IoCtrl:
         self._ser_busy = False
         self.__shutdown = False
         self._status = "OK"
-        # connecting serial interface        
-        hostname, port = 'localhost', 8888
-        self.pi = pigpio.pi(hostname, port)
-        if not self.pi.connected:
-            err_msg = "Error: connection to PIGPIO failed!"
-            raise Exception(err_msg)
-
         # set port mode
-        self.pi.set_mode(self.pin_led_green, pigpio.OUTPUT)
-        self.pi.set_mode(self.pin_led_red, pigpio.OUTPUT)
-        self.pi.set_mode(self.pin_lidar_pwr, pigpio.OUTPUT)
+        GPIO.setup(self.pin_led_green, GPIO.OUT)
+        GPIO.setup(self.pin_led_red, GPIO.OUT)
+        GPIO.setup(self.pin_lidar_pwr, GPIO.OUT)
         # set initial values
-        self.pi.write(self.pin_lidar_pwr, 0)
-        self.pi.write(self.pin_led_green, 0)
-        self.pi.write(self.pin_led_red, 0)
+        GPIO.output(self.pin_lidar_pwr, 0)
+        GPIO.output(self.pin_led_green, 0)
+        GPIO.output(self.pin_led_red, 0)
         # initiate serial interface
         connection_cnt = 0
         connected = False
@@ -106,23 +103,23 @@ class IoCtrl:
 
     def set_lidar_pwr(self, pwr):
         if pwr:
-            self.pi.write(self.pin_lidar_pwr, 1)
+            GPIO.output(self.pin_lidar_pwr, 1)
         else:
-            self.pi.write(self.pin_lidar_pwr, 0)
+            GPIO.output(self.pin_lidar_pwr, 0)
 
 
     def set_led_red(self, status):
         if status:
-            self.pi.write(self.pin_led_red, 1)
+            GPIO.output(self.pin_led_red, 1)
         else:
-            self.pi.write(self.pin_led_red, 0)
+            GPIO.output(self.pin_led_red, 0)
 
 
     def set_led_green(self, status):
         if status:
-            self.pi.write(self.pin_led_green, 1)
+            GPIO.output(self.pin_led_green, 1)
         else:
-            self.pi.write(self.pin_led_green, 0)
+            GPIO.output(self.pin_led_green, 0)
 
 
     def send_ser(self, msg, ser_delay=0.002):
@@ -144,11 +141,7 @@ class IoCtrl:
         
     def clear_display(self):
         self.send_ser("DC")
-    
-    
-    def get_pi(self):
-        return self.pi
-    
+      
     
     def close(self):
         self.__shutdown = True
@@ -175,23 +168,13 @@ if __name__ == "__main__":
     
     io.clear_display()
     io.send_msg("Hello!")
-    # print(io.send_ser("DS18,1"))
-    # print(io.send_ser("DPHallo"))
     
-    """
-    try:
-    
-        while True:
-            io.set_lidar_pwr(True)
-            time.sleep(2)
-            io.set_lidar_pwr(False)
-            time.sleep(2)
-            
-    except KeyboardInterrupt:
-        pass
-    """
+    io.set_lidar_pwr(True)
+    time.sleep(2)
+    io.set_lidar_pwr(False)
     time.sleep(1)
-    #io.close()
-    #gl.close_log()
+
+    io.close()
             
+    
     

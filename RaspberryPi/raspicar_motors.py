@@ -17,10 +17,10 @@ class Motors:
     
     def __init__(self, io):
         self._io = io
-        self._dir_a, self._dir_b = False, False
+        self._dir_a, self._dir_b = True, True
         self._io.send_ser("MR0,0")
         self._io.send_ser("MP1,1")
-        self._io.send_ser("MD0,0")
+        self._io.send_ser("MD1,1")
         self._mot_a, self._mot_b = 0, 0
         self._mot_power_on = True
         self._cutoff = 20
@@ -46,15 +46,15 @@ class Motors:
         self._mot_a = self._speed_factor * speed - self._turn_factor * angle
         self._mot_b = self._speed_factor * speed + self._turn_factor * angle
         if self._mot_a < 0:
-            dir_a = True
+            dir_a = False
             self._mot_a = -self._mot_a
         else:
-            dir_a = False
+            dir_a = True
         if self._mot_b < 0:
-            dir_b = True
+            dir_b = False
             self._mot_b = -self._mot_b
         else:
-            dir_b = False
+            dir_b = True
         if self._mot_a > 0 or self._mot_b > 0:
             if self._mot_stop_cnt >= self._mot_stop_cutoff:
                 self._io.send_ser("MP1,1")
@@ -84,16 +84,33 @@ class Motors:
 if __name__ == "__main__":
     
     io = raspicar_ioctrl.IoCtrl()
-    time.sleep(0.2)
+    time.sleep(0.1)
     mot = Motors(io)
-    mot.run(0, 30)
+    
+    print("Moving forward ...")
+    mot.run(0, +30)
     time.sleep(2)
     mot.run(0, 0)
     time.sleep(1)
+    
+    print("Moving backward ...")
     mot.run(0, -30)
     time.sleep(2)
     mot.run(0, 0)
     time.sleep(1)
+    
+    print("Turning left ...")
+    mot.run(-50, +30)
+    time.sleep(2)
+    mot.run(0, 0)
+    time.sleep(1)
+
+    print("Turning right ...")
+    mot.run(+50, +30)
+    time.sleep(2)
+    mot.run(0, 0)
+    time.sleep(1)
+
     mot.stop()
     io.close()
     
