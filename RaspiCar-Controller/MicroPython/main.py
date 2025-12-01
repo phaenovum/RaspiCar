@@ -36,7 +36,6 @@ def lcd_print(txt):
 #---------------------------------------------------------------------------    
 def read_config(config_file):
     # Read config file
-    files = os.listdir()
     if config_file not in os.listdir():
         cfg = open(config_file, "w")
         cfg.write("RaspiCar Ctrl config file\n")
@@ -50,8 +49,9 @@ def read_config(config_file):
 
     config = {}
     for l in lines[1:]:
+        l = l.replace('\n', ' ');
         key, value = l.split(':')
-        config[key.strip(' ')] = value[:-1].strip(' ')
+        config[key.strip(' ')] = value.strip(' ')
     return config
 
 

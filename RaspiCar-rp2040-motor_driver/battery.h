@@ -67,3 +67,4 @@ class Battery {
 bool bat_voltage_timer_callback(struct repeating_timer *t);
 
 #endif
+
