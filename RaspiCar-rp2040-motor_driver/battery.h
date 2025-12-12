@@ -9,6 +9,8 @@
 #define LED_BAT_LOW            13
 #define POWER_ON               10      // system power 
 #define POWER_DOWN_BT          11      // user button requesting system shutdown
+
+// ADC to voltage conversion
 #define BAT_SLOPE_DEFAULT      372      
 #define BAT_SLOPE_MIN          300
 #define BAT_SLOPE_MAX          450
@@ -16,11 +18,7 @@
 #define BAT_INTERCEPT_MIN      700
 #define BAT_INTERCEPT_MAX     1000
 
-// ADC
-#define BAT_TL431_OFFSET      8.35
-#define BAT_DIVIDER           1.85   // may need to be adjusted according to R2/R3
-#define ADC_RANGE             1024
-#define ADC_REF               3.24
+// Battery voltage range
 #define BAT_LOW               1050
 #define BAT_SHUTDOWN           950
 #define BAT_EXTERNAL           890
