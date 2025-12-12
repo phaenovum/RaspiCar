@@ -1,16 +1,20 @@
 #ifndef __BATTERY__
 #define __BATTERY__
 
-#include <arduino.h>
 #include "display.h"
-#include "util.h"
 
 // pin definitions
-#define ADC_BATTERY      A2
-#define ADC_BATTERY_GPIO 28
-#define LED_BAT_LOW      13
-#define POWER_ON         10      // system power 
-#define POWER_DOWN_BT    11      // user button requesting system shutdown
+#define ADC_BATTERY            A2
+#define ADC_BATTERY_GPIO       28
+#define LED_BAT_LOW            13
+#define POWER_ON               10      // system power 
+#define POWER_DOWN_BT          11      // user button requesting system shutdown
+#define BAT_SLOPE_DEFAULT      372      
+#define BAT_SLOPE_MIN          300
+#define BAT_SLOPE_MAX          450
+#define BAT_INTERCEPT_DEFAULT  825
+#define BAT_INTERCEPT_MIN      700
+#define BAT_INTERCEPT_MAX     1000
 
 // ADC
 #define BAT_TL431_OFFSET      8.35
@@ -39,10 +43,13 @@
 
 class Battery {
   private:
-    uint16_t voltage = 0;   // battery voltage, 10mV
-    uint8_t status = 0;     // 0 -> all fine (OK), 1 -> battery low (BL), 
-                            // 2 -> battery shutdown (SB), 3 -> shutdown requested (SR)
-                            // 4 -> shutdown active
+    uint16_t voltage = 0;       // battery voltage, 10mV
+    uint16_t voltage_raw = 0;   // battery adc value
+    uint16_t bat_intercept = 0;
+    uint16_t bat_slope = 0;
+    uint8_t status = 0;         // 0 -> all fine (OK), 1 -> battery low (BL), 
+                                // 2 -> battery shutdown (SB), 3 -> shutdown requested (SR)
+                                // 4 -> shutdown active
     int cnt_adc = 0;
     int cnt_show = 0;
     int cnt_shutdown = 0;
@@ -56,7 +63,12 @@ class Battery {
   public:
     void init(void);
     bool run_adc(void);
-    int16_t get_voltage(void);
+    uint16_t get_voltage(void);
+    uint16_t get_raw_voltage(void);
+    uint16_t get_bat_intercept(void);
+    uint16_t get_bat_slope(void);
+    void set_bat_slope(uint16_t slope);
+    void set_bat_intercept(uint16_t intercept);
     uint8_t get_status(void);
     void get_full_status(char msg[]);
     void start_shutdown(void);  

@@ -1,8 +1,7 @@
 #ifndef __MOTORS__
 #define __MOTORS__
 
-#include <arduino.h>
-#include <EEPROM.h>
+#include "RaspiCar-rp2040-motor_driver.h"
 
 // pin definitions
 #define MOTA_PWR         21
@@ -24,8 +23,7 @@
 bool mot_a_timer_callback(struct repeating_timer *t);
 bool mot_b_timer_callback(struct repeating_timer *t);
 
-// EEPROM
-#define EEPROM_BASE_ADDR       0
+
 
 class Motors {
   private:

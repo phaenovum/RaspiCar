@@ -95,9 +95,9 @@ int32_t get_int(uint8_t *pnt) {
 
 //-------------------------------------------------------------------------
 void decode_config_command(uint8_t pnt) {
-  char local_buf[16];
+  char local_buf[12];
   uint32_t a;
-  bool okay = true;
+  uint8_t status = 0;   // 0 -> okay, 1 -> okay, no prompt, 2 -> error
   
   switch (buf[pnt]) {
     case 'r':               // set_ramp
@@ -108,26 +108,64 @@ void decode_config_command(uint8_t pnt) {
         motors.set_ramp(a); 
       } else {
         uart_puts(uart1, "Valid range: 1 ... 50");
-        okay = false;
+        status = 1;
       }
       break;
 
     case 'g':
     case 'G':             // get config
-      uart_puts(uart1, "Ramp: ");
+      uart_puts(uart1, "Motor ramp:        ");
       itoa(motors.get_ramp(), local_buf, 10);
       uart_puts(uart1, local_buf);
-      okay = false;
+      uart_puts(uart1, "\r\n");
+      uart_puts(uart1, "Bat ADC intercept: ");
+      itoa(bat.get_bat_intercept(), local_buf, 10);
+      uart_puts(uart1, local_buf);
+      uart_puts(uart1, "\r\n");
+      uart_puts(uart1, "Bat ADC slope    : ");
+      itoa(bat.get_bat_slope(), local_buf, 10);
+      uart_puts(uart1, local_buf);
+      status = 1;
+      break;
+
+    case 'i':             // set bat intercept
+    case 'I':
+      pnt += 1;
+      a = get_int(&pnt);    
+      if ((a >= BAT_INTERCEPT_MIN) && (a <= BAT_INTERCEPT_MAX)) {
+        bat.set_bat_intercept(a); 
+      } else {
+        uart_puts(uart1, "Bat intercept out of range!");
+        status = 1;
+      }
+      break;
+
+    case 's':             // set bat slope
+    case 'S':
+      pnt += 1;
+      a = get_int(&pnt);    
+      if ((a >= BAT_SLOPE_MIN) && (a <= BAT_SLOPE_MAX)) {
+        bat.set_bat_slope(a); 
+      } else {
+        uart_puts(uart1, "Bat slope out of range!");
+        status = 1;
+      }
       break;
 
     default:
-      okay = false;
+      status = 2;
   }
-  if (okay) {
-      uart_puts(uart1, PROMPT_OK);
-  } else {
+  switch (status) {
+    case 0: 
+     uart_puts(uart1, PROMPT_OK);
+     break;
+    case 1:
+      break;
+    case 2:
       uart_puts(uart1, "Config command not recognized: ");
       uart_puts(uart1, buf);
+    default:
+      break;
   }
   uart_puts(uart1, "\r\n");
 }
@@ -135,43 +173,58 @@ void decode_config_command(uint8_t pnt) {
 //-------------------------------------------------------------------------
 void decode_bat_command(uint8_t pnt) {
   char local_buf[16];
-  bool okay = true;
+  uint8_t status = 0;   // 0 -> okay, 1 -> okay, no prompt, 2 -> error
   
   switch (buf[pnt]) {
     case 'v':               // get battery voltage
     case 'V':
       itoaf(bat.get_voltage(), local_buf, 4, 2, false);
       uart_puts(uart1, local_buf); 
+      status = 1;
       break;
 
     case 's':               // get battery status
     case 'S':
       bat.get_full_status(local_buf);
       uart_puts(uart1, local_buf);
+      status = 1;
+      break;
+
+    case 'r':               // get battery raw voltage
+    case 'R':
+      itoaf(bat.get_raw_voltage(), local_buf, 5, 0, false);
+      uart_puts(uart1, local_buf); 
+      status = 1;
       break;
 
     case 'x':
     case 'X':
       display.print_msg("Shutting down");
       bat.start_shutdown();
-      uart_puts(uart1, "OK");
       break;
  
     default:
-      okay = false;
+      status = 2;
   }
-    if (okay) {
-      uart_puts(uart1, PROMPT_OK);
-  } else {
-      uart_puts(uart1, "Battery command not recognized: ");
+
+  switch (status) {
+    case 0: 
+     uart_puts(uart1, PROMPT_OK);
+     break;
+    case 1:
+      break;
+    case 2:
+      uart_puts(uart1, "Config command not recognized: ");
       uart_puts(uart1, buf);
+    default:
+      break;
   }
   uart_puts(uart1, "\r\n");
 }
 
 //-------------------------------------------------------------------------
 void decode_display_command(uint8_t pnt) {
-  bool okay = true;
+  uint8_t status = 0;   // 0 -> okay, 1 -> okay, no prompt, 2 -> error
   
   switch (buf[pnt]) {
     case 'c':           // clear display
@@ -190,21 +243,28 @@ void decode_display_command(uint8_t pnt) {
       break;
       
     default:
-      okay = false;
+      status = 2;
   }
-  if (okay) {
-    uart_puts(uart1, PROMPT_OK);
-  } else {
-    uart_puts(uart1, "Display command not recognized: ");
-    uart_puts(uart1, buf);
+  
+  switch (status) {
+    case 0: 
+     uart_puts(uart1, PROMPT_OK);
+     break;
+    case 1:
+      break;
+    case 2:
+      uart_puts(uart1, "Config command not recognized: ");
+      uart_puts(uart1, buf);
+    default:
+      break;
   }
-  uart_puts(uart1, "\r\n");
+    uart_puts(uart1, "\r\n");
 }
 
 //-------------------------------------------------------------------------
 void decode_motor_command(uint8_t pnt) {
   int32_t a, b;
-  bool okay = true;
+  uint8_t status = 0;   // 0 -> okay, 1 -> okay, no prompt, 2 -> error
 
   switch (buf[pnt]) {
     case 'd':
@@ -289,30 +349,46 @@ void decode_motor_command(uint8_t pnt) {
       a = get_int(&pnt);    
       b = get_int(&pnt);
       if (a < VALID_LIMIT) {
-        motors.set_a_rpm(a);
-        display.mot_a_rpm(motors.get_a_rpm());
-        display.mot_a_enabled(motors.get_a_enabled()); 
-        display.mot_a_power(motors.get_a_power());
+        if (a <= RPM_MAX) {
+          motors.set_a_rpm(a);
+          display.mot_a_rpm(motors.get_a_rpm());
+          display.mot_a_enabled(motors.get_a_enabled()); 
+          display.mot_a_power(motors.get_a_power());
+        } else {
+          uart_puts(uart1, "Motor RPM A out of range!\r\n");
+          status = 1;
+        }
       };
       if (b < VALID_LIMIT) {
-        motors.set_b_rpm(b);
-        display.mot_b_rpm(motors.get_b_rpm());
-        display.mot_b_enabled(motors.get_b_enabled()); 
-        display.mot_b_power(motors.get_b_power());
+        if (b <= RPM_MAX) {
+          motors.set_b_rpm(b);
+          display.mot_b_rpm(motors.get_b_rpm());
+          display.mot_b_enabled(motors.get_b_enabled()); 
+          display.mot_b_power(motors.get_b_power());
+        } else {
+          uart_puts(uart1, "Motor RPM B out of range!\r\n");
+          status = 1;
+        }
       };
       break;
       
     default:
-      okay = false;
+      status = 2;
   }
-
-  if (okay) {
-    uart_puts(uart1, PROMPT_OK);
-  } else {
-    uart_puts(uart1, "Motor command not recognized: ");
-    uart_puts(uart1, buf);
+  switch (status) {
+    case 0: 
+     uart_puts(uart1, PROMPT_OK);
+     uart_puts(uart1, "\r\n");
+     break;
+    case 1:
+      break;
+    case 2:
+      uart_puts(uart1, "Config command not recognized: ");
+      uart_puts(uart1, buf);
+      uart_puts(uart1, "\r\n");
+    default:
+      break;
   }
-  uart_puts(uart1, "\r\n");
 }
 
 //-------------------------------------------------------------------------
@@ -385,6 +461,9 @@ void setup() {
   gpio_set_function(SERIAL_TX, GPIO_FUNC_UART);   // TX 
   gpio_set_function(SERIAL_RX, GPIO_FUNC_UART);   // RX
   uart_init(uart1, 115200);
+
+  // initilaize eeprom
+  EEPROM.begin(256);
 
   // start motors
   motors.init();

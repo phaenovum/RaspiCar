@@ -1,5 +1,6 @@
 #include "motors.h"
 
+
 struct repeating_timer mot_a_timer;
 struct repeating_timer mot_b_timer;
 
@@ -22,11 +23,11 @@ void Motors::init(void) {
   add_repeating_timer_us(b_step_time, mot_b_timer_callback, NULL, &mot_b_timer);
 
   // get ramp from eeprom
-  EEPROM.begin(256);
-  mot_ramp = EEPROM.read(EEPROM_BASE_ADDR);
+ 
+  mot_ramp = EEPROM.read(EEPROM_BASE_ADDR + EEPROM_MOTOR_RAMP);
   if ((mot_ramp <= 1) || (mot_ramp >= 50)) {
     mot_ramp = MOT_RAMP;
-    EEPROM.write(EEPROM_BASE_ADDR, mot_ramp);
+    EEPROM.write(EEPROM_BASE_ADDR + EEPROM_MOTOR_RAMP, mot_ramp);
   }
 }
 
@@ -203,7 +204,7 @@ void  Motors::set_ramp(uint32_t ramp) {
   if (ramp <= 100) {
     if (ramp != mot_ramp) {
       mot_ramp = ramp;
-      EEPROM.write(EEPROM_BASE_ADDR, mot_ramp);
+      EEPROM.write(EEPROM_BASE_ADDR + EEPROM_MOTOR_RAMP, mot_ramp);
       EEPROM.commit();
     }
   }

@@ -1,7 +1,8 @@
 """
 terminal.py
 
-A simple terminal script to pay with the serial interface fpr the RaspiCar motor controller
+A simple terminal script to play with the serial interface of
+the RaspiCar motor controller
 
 SLW 11/2025
 """
@@ -9,12 +10,16 @@ SLW 11/2025
 import serial
 import time
 
-def send_ser(msg, ser_delay=0.05):
+def send_ser(msg, ser_delay=0.1):
     msg_bytes = bytes(msg + '\n', 'UTF-8')
     ser.write(msg_bytes)
     time.sleep(ser_delay)
-    response = ser.readline()
-    return response[:-2].decode("UTF-8")
+    cnt = ser.in_waiting
+    response = ''
+    if cnt > 0:
+        response = ser.read(cnt)
+        response = response.decode("UTF-8")
+    return response
 
 # main program starts here ==================================
 
@@ -52,4 +57,3 @@ send_ser("MP0,0")
 send_ser("ME0,0")
 ser.close()
 print("Serial interface closed ...")
-    

@@ -8,6 +8,24 @@ void Battery::init(void) {
   pinMode(LED_BAT_LOW, OUTPUT);
   digitalWrite(LED_BAT_LOW, LOW);
 
+  bat_intercept = EEPROM.read(EEPROM_BASE_ADDR + EEPROM_BAT_INTERCEPT) + 
+                  EEPROM.read(EEPROM_BASE_ADDR + EEPROM_BAT_INTERCEPT + 1) * 256;
+  if ((bat_intercept  < BAT_INTERCEPT_MIN) || (bat_intercept > BAT_INTERCEPT_MAX)) {
+    bat_intercept = BAT_INTERCEPT_DEFAULT;
+    EEPROM.write(EEPROM_BASE_ADDR + EEPROM_BAT_INTERCEPT, bat_intercept % 256);
+    EEPROM.write(EEPROM_BASE_ADDR + EEPROM_BAT_INTERCEPT + 1, bat_intercept / 256);
+    EEPROM.commit();
+  }
+
+  bat_slope = EEPROM.read(EEPROM_BASE_ADDR + EEPROM_BAT_SLOPE) + 
+              EEPROM.read(EEPROM_BASE_ADDR + EEPROM_BAT_SLOPE +  1) * 256;
+  if ((bat_slope  < BAT_SLOPE_MIN) || (bat_slope > BAT_SLOPE_MAX)) {
+    bat_slope = BAT_SLOPE_DEFAULT;
+    EEPROM.write(EEPROM_BASE_ADDR + EEPROM_BAT_SLOPE, bat_slope % 256);
+    EEPROM.write(EEPROM_BASE_ADDR + EEPROM_BAT_SLOPE + 1, bat_slope / 256);
+    EEPROM.commit();
+  }
+
   add_repeating_timer_ms(10, bat_voltage_timer_callback, NULL, &bat_voltage_timer); 
 }
 
@@ -21,16 +39,19 @@ bool Battery::run_adc(void) {
   cnt_adc += 1;
   if (cnt_adc > 16) {
     cnt_adc = 0;
-    voltage = (uint16_t) (100*(adc_sum * ADC_REF * BAT_DIVIDER / (ADC_RANGE * 16) + BAT_TL431_OFFSET));
+    voltage_raw = adc_sum;
+    voltage = (uint16_t) (bat_intercept + (uint32_t) bat_slope * adc_sum / 10000);
     if (voltage < BAT_EXTERNAL) voltage = 0;
     adc_sum = 0;
     cnt_show += 1;    
+    /*
     if (status < 3) {    // if status unequal 'SR' and 'SX' and 'BE'
       if (voltage > BAT_LOW) status = 0; // 'OK'
       else if (voltage > BAT_SHUTDOWN) status = 1; // 'BL' battery low
       else if (voltage > BAT_EXTERNAL) status = 2; // 'BS' battery shutdown
       else status = 3; // 'BE' battery external
     }
+    */
   }
 
   // manage power down button
@@ -103,13 +124,43 @@ void Battery::get_full_status(char buf[]) {
 
 //-------------------------------------------------------------------------
 uint8_t Battery::get_status(void) {
-
   return status;
 }
 
 //-------------------------------------------------------------------------
-int16_t Battery::get_voltage(void) {
+uint16_t Battery::get_voltage(void) {
   return voltage;
+}
+
+//-------------------------------------------------------------------------
+uint16_t Battery::get_raw_voltage(void) {
+  return voltage_raw;
+}
+
+//-------------------------------------------------------------------------
+uint16_t Battery::get_bat_intercept(void) {
+  return bat_intercept;
+}
+
+//-------------------------------------------------------------------------
+uint16_t Battery::get_bat_slope(void) {
+  return bat_slope;
+}
+
+//-------------------------------------------------------------------------
+void Battery::set_bat_slope(uint16_t slope) {
+  bat_slope = slope;
+    EEPROM.write(EEPROM_BASE_ADDR + EEPROM_BAT_SLOPE, bat_slope % 256);
+    EEPROM.write(EEPROM_BASE_ADDR + EEPROM_BAT_SLOPE + 1, bat_slope / 256);
+    EEPROM.commit();
+}
+
+//-------------------------------------------------------------------------
+void Battery::set_bat_intercept(uint16_t intercept) {
+  bat_intercept = intercept;
+  EEPROM.write(EEPROM_BASE_ADDR + EEPROM_BAT_INTERCEPT, bat_intercept % 256);
+  EEPROM.write(EEPROM_BASE_ADDR + EEPROM_BAT_INTERCEPT + 1, bat_intercept / 256);
+  EEPROM.commit();
 }
 
 //-------------------------------------------------------------------------
