@@ -111,7 +111,12 @@ class RaspiCarSocket:
                    round(min(self._latency) * 1000, 1), round(sum(self._latency) * 1000 / cnt, 1), round(max(self._latency) * 1000, 1)
         else:
             return 0, cnt, self._timeout_cnt, 0.0, 0.0, 0.0
-        
+    
+    
+    def get_latencies(self):
+        return self._latency
+    
+   
     def close(self):
         print(" - socket: closing ...")
         self._raspi_socket.close()
@@ -159,7 +164,19 @@ if __name__ == '__main__':
     if not s.okay:
         print("Script stopped with errors!")
     else:
-        print(s.get_stats())
+        print()
+        print("Statistics:")
+        stats = s.get_stats()
+        print(" - returned:", str(stats[0]), "   Missed:", str(stats[1]))
+        print(" - round trip (msec): min", str(stats[2]), " mean:", str(stats[3]), " max:", str(stats[4]))
+        print()
+        
+        fig, ax = plt.subplots()
+        ax.hist([l * 1000 for l in s.get_latencies()])
+        ax.set_ylabel("Latency")
+        ax.set_xlabel("msec")
+        plt.show()
+        
         s.send_msg("Okay, done!")
     
     s.close()

@@ -7,15 +7,18 @@ This version 2 of IoCtrl is based on the RPi.GPIO library (and does not require 
 - Class: IoCtrl
 - Methods: send_msg, clear_display, set_led_green, set_led_red, set_lidar_pwr, close
 
-SLW 02-12-2023
+SLW 01-12-2023
 Last update: 01-12-2025
 """
 
-import RPi.GPIO as GPIO
+from gpiozero import LED
+# import RPi.GPIO
 import time
 import serial
 import threading
 import os
+
+CHECK_VERSION = False
 
 """ Battery status:
 BAT_STATUS_EXTERN              0   // 'EX', external power supply
@@ -29,28 +32,24 @@ BAT_STATUS_SHUTDOWN_PENDING    5   // 'SP', shutdown was confirmed, waiting for 
 class IoCtrl:
        
     def __init__(self):
-        GPIO.setwarnings(False)
-        GPIO.setmode(GPIO.BCM)
         # pin definitions
-        _PIN_LED_RED = 13
-        _PIN_LED_GREEN = 6
+        _PIN_LED_RED = 6
+        _PIN_LED_GREEN = 13
         _PIN_LIDAR_PWR = 21
         _serial_port = "/dev/ttyUSB0"
+        _software_version = 0.0
         # initiate ports
-        self.pin_led_green, self.pin_led_red = _PIN_LED_GREEN, _PIN_LED_RED
-        self.pin_lidar_pwr = _PIN_LIDAR_PWR
+        self._led_green = LED(_PIN_LED_GREEN)
+        self._led_red = LED(_PIN_LED_RED)
+        self._lidar_pwr = LED(_PIN_LIDAR_PWR)
         # initiate operating data
         self._ser_busy = False
         self.__shutdown = False
         self._status = "OK"
-        # set port mode
-        GPIO.setup(self.pin_led_green, GPIO.OUT)
-        GPIO.setup(self.pin_led_red, GPIO.OUT)
-        GPIO.setup(self.pin_lidar_pwr, GPIO.OUT)
         # set initial values
-        GPIO.output(self.pin_lidar_pwr, 0)
-        GPIO.output(self.pin_led_green, 0)
-        GPIO.output(self.pin_led_red, 0)
+        self._led_green.off()
+        self._led_red.off()
+        self._lidar_pwr.off()
         # initiate serial interface
         connection_cnt = 0
         connected = False
@@ -68,10 +67,24 @@ class IoCtrl:
         if self._ser.isOpen() == False:
             err_msg = "Error: can't open serial port " + _serial_port
             raise Exception(err_msg)            
-        time.sleep(0.5)
+        time.sleep(0.25)
         self.send_ser(" ");
-        time.sleep(0.5)
+        time.sleep(0.25)
         self.send_ser("DMRaspi connected")
+        # check version
+        if CHECK_VERSION:
+            err_msg = ""
+            msg = self.send_ser("GV")
+            try:
+                self._software_version = float(msg)
+            except ValueError:
+                err_msg = "Can't read interface software version! ('" + msg + ")'"
+            if len(err_msg) > 0:
+                raise Exception(err_msg)
+            if self._software_version < 0.96:
+                err_msg = "Interface software version " + str(self._software_version) + " not supported!"
+                raise Exception(err_msg)
+            print(" - ioctrl: interface software version:", self._software_version)
         # starting thread
         self._t = threading.Thread(target = self._read_status)
         self._t.start()       
@@ -94,35 +107,35 @@ class IoCtrl:
                 os.popen("sudo shutdown -h now").read()
                 
             time.sleep(1)
-        print(" - io_ctrl: status thread closed ...")
+        print(" - ioctrl: status thread closed ...")
 
 
-    def get_status(self):
+    def get_status(self) -> str:
         return self._status
 
 
-    def set_lidar_pwr(self, pwr):
+    def set_lidar_pwr(self, pwr: bool):
         if pwr:
-            GPIO.output(self.pin_lidar_pwr, 1)
+            self._lidar_pwr.on()
         else:
-            GPIO.output(self.pin_lidar_pwr, 0)
+            self._lidar_pwr.off()
 
 
-    def set_led_red(self, status):
+    def set_led_red(self, status: bool):
         if status:
-            GPIO.output(self.pin_led_red, 1)
+            self._led_red.on()
         else:
-            GPIO.output(self.pin_led_red, 0)
+            self._led_red.off()
 
 
-    def set_led_green(self, status):
+    def set_led_green(self, status: bool):
         if status:
-            GPIO.output(self.pin_led_green, 1)
+            self._led_green.on()
         else:
-            GPIO.output(self.pin_led_green, 0)
+            self._led_green.off()
 
 
-    def send_ser(self, msg, ser_delay=0.002):
+    def send_ser(self, msg: str, ser_delay=0.002) -> str:
         while self._ser_busy == True:
             time.sleep(ser_delay)
         self._ser_busy = True
@@ -135,8 +148,12 @@ class IoCtrl:
         return response[:-2].decode("UTF-8")
     
     
-    def send_msg(self, msg):
-        self.send_ser("DL" + msg)
+    def send_msg(self, msg: str):
+        self.send_ser("DM" + msg)
+        
+    
+    def send_titel(self, msg: str):
+        self.send_ser("DT" + msg)
         
         
     def clear_display(self):
@@ -167,6 +184,7 @@ if __name__ == "__main__":
     io.set_led_green(False)
     
     io.clear_display()
+    io.send_titel("RaspiCar IoCtrl Test")
     io.send_msg("Hello!")
     
     io.set_lidar_pwr(True)

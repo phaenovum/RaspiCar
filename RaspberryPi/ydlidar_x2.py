@@ -1,6 +1,6 @@
 """ Module ydlidar_x2
     Driver sofware for the YD LiDAR X2
-    SLW - January 2023
+    SLW - January 2026
 """
 
 import serial
@@ -14,7 +14,7 @@ import threading
 
 class YDLidarX2:
     
-    def __init__(self, port, chunk_size=2000):
+    def __init__(self, port='/dev/ttyAMA0', chunk_size=2000):
         self.__version = 1.03
         self._port = port                # string denoting the serial interface
         self._ser = None
@@ -205,7 +205,7 @@ class YDLidarX2:
         self._scan_is_active = False
         
         
-    def get_data(self):
+    def get_data(self) -> np.ndarray:
         """ Returns an array of distance data (360 values, one for each degree).
             Resets availability flag"""
         if not self._is_scanning:
@@ -217,7 +217,7 @@ class YDLidarX2:
         return distances
     
     
-    def get_sectors40(self):
+    def get_sectors40(self) -> np.ndarray:
         """ Returns an array of minimum distances for sectors 0 ... 39.
             Resets availability flag.
             Sectors are:
@@ -240,7 +240,7 @@ class YDLidarX2:
         return sectors
     
     
-    def get_sectors20(self):
+    def get_sectors20(self) -> np.ndarray:
         """ Returns an array of minimum distances for sectors 0 ... 19.
             Resets availability flag.
             Sectors are:
@@ -395,43 +395,43 @@ class YDLidarX2:
                        fill='black', dash=(2,2))
         
         
-    def set_debug(self, debug_level):
+    def set_debug(self, debug_level: bool):
         """ Sets the debug level. Range: 0, 1, or 2 """
         self._debug_level = debug_level
     
-    def _get_sector40_lst(self):
+    def _get_sector40_lst(self) -> np.ndarray:
         """ Returns an array of the border angles for each of the 40 sectors. """
         return self._sector40_lst
     
-    def _get_sector20_lst(self):
+    def _get_sector20_lst(self) -> np.ndarray:
         """ Returns an array of the border angles for each of the 20 sectors. """
         return self._sector20_lst
     
-    def _get_sector40_midpoints(self):
+    def _get_sector40_midpoints(self) -> np.ndarray:
         """ Returns midpoint angles of all 40 sectors """
         return self._sector40_midpoints
     
-    def _get_sector20_midpoints(self):
+    def _get_sector20_midpoints(self) -> np.ndarray:
         """ Returns midpoint angles of all 20 sectors """
         return self._sector20_midpoints
 
-    def _available(self):
+    def _available(self) -> bool:
         """ Indicates whether a new dataset is available """
         return self._availability_flag
     
-    def _get_error_cnt(self):
+    def _get_error_cnt(self) -> int:
         """ Returns the error count of last data chunk """
         return self._error_cnt
     
-    def _get_connected(self):
+    def _get_connected(self) -> bool:
         """ Returns the status of the connection to the serial interface """
         return self._is_connected
 
-    def _get_scanning(self):
+    def _get_scanning(self) -> bool:
         """ Returns indicator showing whether scanning is active """
         return self._is_scanning
     
-    def _get_version(self):
+    def _get_version(self) -> str:
         """ Returns version number of the driver software """
         return self.__version
     
@@ -439,7 +439,7 @@ class YDLidarX2:
         """ Returns out-of-range value, indicating an invalid data item """
         return self._out_of_range
     
-    def _get_scale_factor(self):
+    def _get_scale_factor(self) -> float:
         return self._scale_factor
     
     def _set_scale_factor(self, f):
@@ -465,13 +465,9 @@ class YDLidarX2:
     
 #- main program starts here ----------------------------------------------
 
-# --------------------------------------------------------------------------
 if __name__ == "__main__":
 
-    import RPi.GPIO as GPIO
-
-    # Global constants
-    PIN_LIDAR_PWR = 21      # GPIO pin to power the LiDAR
+    # A few functions needed to display the LiDAR results
     
     def run_show():
         if running:
@@ -505,16 +501,19 @@ if __name__ == "__main__":
         time.sleep(0.5)
         root.destroy()
         
+    # === here we go =============================================
     
-    #= main program starts here ======================================================
+    # Import libraries
+    from gpiozero import LED
+    
+    # Global constants
+    PIN_LIDAR_PWR = 21      	# GPIO pin to power the LiDAR
 
     # Start LiDAR power
-    GPIO.setwarnings(False)
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setup(PIN_LIDAR_PWR, GPIO.OUT)
-    GPIO.output(PIN_LIDAR_PWR, GPIO.HIGH)
+    lidar_pwr = LED(PIN_LIDAR_PWR)
+    lidar_pwr.on()
     time.sleep(0.5)
-
+    
     # Create window
     root = tk.Tk()
     cv = tk.Canvas(root, width=800, height=800)
@@ -525,7 +524,7 @@ if __name__ == "__main__":
     root.bind('<Escape>', end_show)
     
     # Create lid object on serial port
-    lid = YDLidarX2('/dev/serial0')
+    lid = YDLidarX2()
     lid.scale_factor = 0.15
     lid.connect()
     lid.start_scan()
@@ -539,6 +538,6 @@ if __name__ == "__main__":
     lid.stop_scan()
     time.sleep(1)
     lid.disconnect()
-    GPIO.output(PIN_LIDAR_PWR, GPIO.LOW)
+    lidar_pwr.off()
     print("LiDAR stoped")
     print("Done")

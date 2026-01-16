@@ -44,14 +44,12 @@ bool Battery::run_adc(void) {
     if (voltage < BAT_EXTERNAL) voltage = 0;
     adc_sum = 0;
     cnt_show += 1;    
-    /*
     if (status < 3) {    // if status unequal 'SR' and 'SX' and 'BE'
       if (voltage > BAT_LOW) status = 0; // 'OK'
       else if (voltage > BAT_SHUTDOWN) status = 1; // 'BL' battery low
       else if (voltage > BAT_EXTERNAL) status = 2; // 'BS' battery shutdown
       else status = 3; // 'BE' battery external
     }
-    */
   }
 
   // manage power down button
@@ -99,26 +97,35 @@ bool Battery::run_adc(void) {
 
 //-------------------------------------------------------------------------
 void Battery::get_full_status(char buf[]) {
+  char buf2[5];
 
   itoaf(voltage, buf, 4, 2, false);
+  strcat(buf, ",");
+  decode_status(buf2);
+  strcat(buf, buf2);
+}
+
+
+//-------------------------------------------------------------------------
+void Battery::decode_status(char *this_buf) {
   switch (status) {
     case STATUS_OK: 
-      strcat(buf, ",OK");
+      strcpy(this_buf, "OK");
       break;
     case STATUS_BAT_LOW: 
-      strcat(buf, ",BL");
+      strcpy(this_buf, "BL");
       break;
     case STATUS_BAT_SHUTDOWN: 
-      strcat(buf, ",SB");
+      strcpy(this_buf, "SB");
       break;
     case STATUS_BAT_EXTERNAL:
-      strcat(buf, ",BE");
+      strcpy(this_buf, "BE");
       break;
     case STATUS_SHUTDOWN_REQUESTED: 
-      strcat(buf, ",SR");
+      strcpy(this_buf, "SR");
       break;
     case STATUS_SHUTDOWN_ACTIVE:
-      strcat(buf, ",SX");
+      strcpy(this_buf, "SX");
   } 
 }
 
@@ -126,6 +133,13 @@ void Battery::get_full_status(char buf[]) {
 uint8_t Battery::get_status(void) {
   return status;
 }
+
+
+//-------------------------------------------------------------------------
+void Battery::get_decode_status(char *buf) {
+  decode_status(buf);
+}
+
 
 //-------------------------------------------------------------------------
 uint16_t Battery::get_voltage(void) {

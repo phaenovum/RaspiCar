@@ -1,0 +1,29 @@
+# Configuration
+
+# Setup the directory
+$ mkdir /home/<user>/RaspiCar
+$ cd RaspiCar
+
+$ Ensure that lgpio ist part of the system environment
+sudo apt install python3-lgpio
+$ Double check that RPi.GPIO is removed
+sudo apt remove python3-rpi.gpio
+
+# Create virtual environment 
+$ python -m venv raspicar_venv --system-site-packages
+
+# Activate the environment
+$ source raspicar_venv/bin/activate
+
+# Upgrade pip
+$ python -m pip install --upgrade pip
+
+# Install gpiotero (if not already in place)
+(raspicar_venv)$ pip install gpiozero
+
+# Install pandas, matplotlib
+(raspicar_venv)$ pip install pandas
+(raspicar_venv)$ pip install matplotlib
+
+# Install opencv
+$ pip install opencv-python

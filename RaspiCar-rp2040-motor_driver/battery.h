@@ -55,6 +55,7 @@ class Battery {
     int cnt_shutdown_request_wait = 0;
     int cnt_force_shutdown = 0;
     uint32_t adc_sum = 0;
+    void decode_status(char *buf);
     void request_shutdown(void);
     void force_shutdown(void);
     
@@ -68,6 +69,7 @@ class Battery {
     void set_bat_slope(uint16_t slope);
     void set_bat_intercept(uint16_t intercept);
     uint8_t get_status(void);
+    void get_decode_status(char *buf); 
     void get_full_status(char msg[]);
     void start_shutdown(void);  
     void request_bat_shutdown(void); 

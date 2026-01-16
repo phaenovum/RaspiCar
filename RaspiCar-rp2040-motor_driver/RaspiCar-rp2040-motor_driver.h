@@ -3,7 +3,6 @@
 
 #include <arduino.h>
 #include <EEPROM.h>
-#include "battery.h"
 #include "util.h"
 
 #define SOFTWARE_VERSION 96

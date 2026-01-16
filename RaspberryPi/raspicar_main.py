@@ -2,11 +2,12 @@
 """
 Main program to operate the RaspiCar.
 
-File: raspicar.py
+File: raspicar_main.py
 - Class RaspiCar
 - Methods: run, start_lid, stop_lid, close
 
 SLW 20-06-2023
+Last update: 14-12-2025
 """
 
 import os
@@ -16,6 +17,7 @@ import ydlidar_x2
 import raspicar_socket
 import raspicar_ioctrl
 import raspicar_motors
+import raspicar_camera
 
 # Buttons
 BT_RED = 8
@@ -24,13 +26,13 @@ BT_GREEN = 2
 BT_BLUE = 1
 
 # Working directory
-workdir = os.path.join("/home", "stela", "Python", "RaspiCar")
+user = "stela"
+workdir = os.path.join("/home", user, "RaspiCar")
 
 
 class RaspiCar:
     def __init__(self):
         # Operating values
-        self._automode = False
         self._stop_system = False
         self._shutdown = False
         self._old_buttons = 0
@@ -38,17 +40,19 @@ class RaspiCar:
         # IoCtrl
         self.io = raspicar_ioctrl.IoCtrl()
         self.io.clear_display()
-        self.io.send_msg("RaspiCar 0.4")
+        self.io.send_titel("RaspiCar 0.4")
         time.sleep(0.4)
         # LiDAR
         self.io.send_msg("Initiating LiDAR")
-        self.lid = ydlidar_x2.YDLidarX2('/dev/serial0')
+        self.lid = ydlidar_x2.YDLidarX2()
         self.lid.connect()
         time.sleep(0.1)
         # Motors
         self.io.send_msg("Starting motors")
         self.mot = raspicar_motors.Motors(self.io)
         time.sleep(0.1)
+        # Camera
+        self._cam = raspicar_camera.CameraMeans()
         # Socket
         self.io.send_msg("Starting socket")
         self.sck = raspicar_socket.RaspiCarSocket()
@@ -59,6 +63,11 @@ class RaspiCar:
         else:
             self.sck.send_msg("RaspiCar connected")
         time.sleep(0.2)
+        print("RaspiCar buttons:")
+        print(" - blue + green: system exit")
+        print(" - blue + yellow: system exit and shutdown")
+        print(" - red: start / stop LiDAR")
+        print()
         
         
     def run(self):
@@ -75,14 +84,15 @@ class RaspiCar:
                 if buttons > 0 and buttons != self._old_buttons:
                     self._check_buttons(buttons)
                 self._old_buttons = buttons
-                if not self._automode:
-                    self.mot.run(x, y)
+                self.mot.run(x, y)
             else:
                 self.io.set_led_red(True)
             # Get input from the LiDAR
             if self._lid_is_active and self.lid.available:
                 sectors = self.lid.get_sectors40()
-                print(sectors[18 : 23])
+                print(sectors)
+            # Show the camera
+            self._cam.show_frame()
                 
             time.sleep(0.1)
                     
@@ -110,8 +120,8 @@ class RaspiCar:
         
 
     def stop_lid(self):
+        self.sck.send_msg("Stopping LiDAR")
         self._lid_is_active = False
-        #self.socket_send_msg("Stopping LiDAR")
         self.lid.stop_scan()
         time.sleep(0.3)
         self.io.set_lidar_pwr(False)
@@ -119,7 +129,8 @@ class RaspiCar:
         
         
     def close(self):
-        # self.socket_send_msg("Stopping system")
+        self._cam.close()
+        self.sck.send_msg("Stopping system")
         self.io.send_msg("Stopping motors")
         self.mot.stop()
         time.sleep(0.1)
