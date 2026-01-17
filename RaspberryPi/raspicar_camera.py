@@ -4,6 +4,7 @@ SLW 01-23-2023
 """
 
 import time
+import numpy as np
 import cv2
 
 class Camera:
@@ -18,7 +19,7 @@ class Camera:
         self.error = False
         
         
-    def get_frame(self) -> numpy.ndarray:
+    def get_frame(self) -> np.ndarray:
         _, frame = self.vid.read()
         return frame
     
