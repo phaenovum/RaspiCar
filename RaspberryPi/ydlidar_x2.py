@@ -14,9 +14,15 @@ import threading
 
 class YDLidarX2:
     
-    def __init__(self, port='/dev/ttyAMA0', chunk_size=2000):
+    def __init__(self, chunk_size=2000):
+        # Find out which Raspberry Pi model we are running
+        version = self._detect_model()
+        if version < 5:
+            self._port = '/dev/serial0'
+        else:
+            self._port = '/dev/ttyAMA0'
+        
         self.__version = 1.03
-        self._port = port                # string denoting the serial interface
         self._ser = None
         self._chunk_size = chunk_size    # reasonable range: 1000 ... 10000
         self._min_range = 10			 # minimal measurable distance
@@ -53,7 +59,15 @@ class YDLidarX2:
         self._sin_x = np.array([math.sin(x * math.pi / 180) for x in range(-180, 180)])
         self._cos_x = np.array([math.cos(x * math.pi / 180) for x in range(-180, 180)])
         
+    
+    def _detect_model(self) -> int:
+        """ Returns the Raspberry Pi model numner 3, 4 or 5 as integer """
+        with open('/proc/device-tree/model') as f:
+            model = f.read()
+        version = int(model.split(' ')[2][0])
+        return version
         
+
     def connect(self):
         """ Connects on serial interface """
         if not self._is_connected:

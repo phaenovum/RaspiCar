@@ -52,7 +52,7 @@ class RaspiCar:
         self.mot = raspicar_motors.Motors(self.io)
         time.sleep(0.1)
         # Camera
-        self._cam = raspicar_camera.CameraMeans()
+        self._cam = raspicar_camera.Camera()
         # Socket
         self.io.send_msg("Starting socket")
         self.sck = raspicar_socket.RaspiCarSocket()
