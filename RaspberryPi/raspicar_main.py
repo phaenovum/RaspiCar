@@ -178,15 +178,16 @@ print("  Timing: {:.1f} - {:.1f} - {:.1f} ms".format(stats[2], stats[3], stats[4
 print()
 
 if rc.shutdown:
+    # Closure with shutdown
     print("Preparing for shutdown")
     rc.io.send_msg("Shutting  down ...")
     rc.io.send_ser("BX")
     rc.close()
     time.sleep(0.3)
+    # Good bye!
     os.popen("sudo shutdown -h now").read()
 
 else:
+    # Closure while keeping the Raspberry Pi active
     rc.close()
     print("Done")
-
-    # program close with shutdown
