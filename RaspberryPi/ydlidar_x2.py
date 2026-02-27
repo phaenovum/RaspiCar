@@ -10,10 +10,17 @@ import time
 import tkinter as tk
 import warnings
 import threading
+# import cv2
+import matplotlib.pyplot as plt
     
 
 class YDLidarX2:
     
+<<<<<<< HEAD
+    def __init__(self, port='/dev/ttyAMA0', chunk_size=2000):
+        self.__version = 1.05
+        self._port = port                # string denoting the serial interface
+=======
     def __init__(self, chunk_size=2000):
         # Find out which Raspberry Pi model we are running
         version = self._detect_model()
@@ -22,7 +29,8 @@ class YDLidarX2:
         else:
             self._port = '/dev/ttyAMA0'
         
-        self.__version = 1.03
+        self.__version = 1.05
+>>>>>>> c5053d23227f514487ea25fb81c92d2098a4f004
         self._ser = None
         self._chunk_size = chunk_size    # reasonable range: 1000 ... 10000
         self._min_range = 10			 # minimal measurable distance
@@ -37,6 +45,11 @@ class YDLidarX2:
         self._error_cnt = 0
         self._lock = threading.Lock()
         self._last_chunk = None
+        # 2D array capturing the raw data (angle, distance)
+        self._raw_prev = np.zeros((chunk_size, 2))  
+        self._raw_prev_len = 0
+        self._raw_current = np.zeros((chunk_size, 2))
+        self._raw_current_len = 0        
         # 2D array capturing the distances for angles from 0 to 359
         self._distances = np.array([[self._out_of_range for _ in range(self._max_data)] for l in range(360)], dtype=np.uint32)
         # 1D array capturing the number of measurements for angles from 0 to 359
@@ -58,16 +71,9 @@ class YDLidarX2:
         # arrays with pre-calculated sinus and cosinus
         self._sin_x = np.array([math.sin(x * math.pi / 180) for x in range(-180, 180)])
         self._cos_x = np.array([math.cos(x * math.pi / 180) for x in range(-180, 180)])
+        self._angles = np.array(range(360))
         
-    
-    def _detect_model(self) -> int:
-        """ Returns the Raspberry Pi model numner 3, 4 or 5 as integer """
-        with open('/proc/device-tree/model') as f:
-            model = f.read()
-        version = int(model.split(' ')[2][0])
-        return version
         
-
     def connect(self):
         """ Connects on serial interface """
         if not self._is_connected:
@@ -152,17 +158,21 @@ class YDLidarX2:
  
                 # Start data block
                 if sample_cnt == 1:
-                    dist = round((d[8] + 256*d[9]) / 4)
+                    dist_float = (d[8] + 256*d[9]) / 4
                     if self._debug_level > 1:
-                        print("Start package: angle:", start_angle, "   dist:", dist)
-                    if dist > self._min_range:
-                        if dist > self._max_range: dist = self._max_range
-                        angle = round(start_angle + self._corrections[dist])
-                        if angle < 0: angle += 360
-                        if angle >= 360: angle -= 360
-                        self._distances[angle][distances_pnt[angle]] = dist
-                        if distances_pnt[angle] < self._max_data - 1:
-                            distances_pnt[angle] += 1
+                        print("Start package: angle:", start_angle, "   dist:", dist_float)
+                    if dist_float > self._min_range:
+                        if dist_float > self._max_range: dist_float = self._max_range
+                        dist_int = round(dist_float)
+                        angle_float = start_angle + self._corrections[dist_int]
+                        if angle_float < 0: angle_float += 360
+                        if angle_float >= 360: angle_float -= 360
+                        self._raw_current[self._raw_current_len] = (angle_float, dist_float)
+                        self._raw_current_len += 1
+                        angle_int = int(angle_float)
+                        self._distances[angle_int][distances_pnt[angle_int]] = dist_int
+                        if distances_pnt[angle_int] < self._max_data - 1:
+                            distances_pnt[angle_int] += 1
                         else:
                             if self._debug_level > 0:
                                 print("Idx:", idx, " - pointer overflow")
@@ -188,15 +198,20 @@ class YDLidarX2:
                         step_angle = (end_angle - start_angle) / (sample_cnt - 1)
                     pnt = 8
                     while pnt < l:
-                        dist = round((d[pnt] + 256*d[pnt+1]) / 4)
-                        if dist > self._min_range:
-                            if dist > self._max_range: dist = self._max_range
-                            angle = round(start_angle + self._corrections[dist])
-                            if angle < 0: angle += 360
-                            if angle >= 360: angle -= 360
-                            self._distances[angle][distances_pnt[angle]] = dist
-                            if distances_pnt[angle] < self._max_data - 1:
-                                distances_pnt[angle] += 1
+                        dist_float = (d[pnt] + 256*d[pnt+1]) / 4
+                        if dist_float > self._min_range:
+                            if dist_float > self._max_range: dist_float = self._max_range
+                            dist_int = round(dist_float)
+                            angle_float = start_angle + self._corrections[dist_int]
+                            if angle_float < 0: angle_float += 360
+                            if angle_float >= 360: angle_float -= 360
+                            self._raw_current[self._raw_current_len] = (angle_float, dist_float)
+                            self._raw_current_len += 1
+                            dist_int = round(dist_float)
+                            angle_int = int(angle_float)
+                            self._distances[angle_int][distances_pnt[angle_int]] = dist_int
+                            if distances_pnt[angle_int] < self._max_data - 1:
+                                distances_pnt[angle_int] += 1
                             else:
                                 if self._debug_level > 0:
                                     print("Idx:", idx, " - pointer overflow")
@@ -215,6 +230,12 @@ class YDLidarX2:
                     self._result[angle] = self._distances[angle][:distances_pnt[angle]].mean()
             self._error_cnt = error_cnt
             self._availability_flag = True
+            
+            # Copy raw data to previous, and reset current raw data
+            self._raw_prev = self._raw_current
+            self._raw_prev_len = self._raw_current_len
+            self._raw_current_len = 0
+
         # end of decoding loop        
         self._scan_is_active = False
         
@@ -229,6 +250,20 @@ class YDLidarX2:
         self._availability_flag = False
         self._lock.release()
         return distances
+    
+    
+    def get_xydata(self, angle_min=0, angle_max=360):
+        self._lock.acquire()
+        data = self._raw_prev[0 : self._raw_prev_len].copy()
+        self._lock.release()
+        self._availability_flag = False
+        mask = (data[:, 0] >= angle_min) & (data[:, 0] <= angle_max)
+        data = data[mask]
+        xydata = np.column_stack((
+                        data[:,1] * -np.sin(data[:,0] * np.pi / 180),
+                        data[:,1] * -np.cos(data[:,0] * np.pi / 180)
+                 ))
+        return xydata
     
     
     def get_sectors40(self) -> np.ndarray:
@@ -486,24 +521,19 @@ if __name__ == "__main__":
     def run_show():
         if running:
             if lid.available:
-                # find sector with farthest distance
-                sectors = lid.get_sectors40()
-                max_dist, max_sector = 0, 0
-                for idx in range(3, len(sectors)-3+1):
-                    dist = sectors[idx]
-                    if dist < lid.out_of_range and dist > max_dist:
-                        max_dist = dist
-                        max_sector = idx
-                angle = lid.sector40_midpoints[max_sector]
-                
+                xy = lid.get_xydata(25, 360-25)                
                 # plot everything:
-                # - data for each angle
-                # - sectors40
-                # - vector to sector with farthest distance 
                 cv.delete("all")
-                lid.plot_data(cv, (1000, 2000, 3000))
-                lid.plot_sectors40(cv)
-                lid.plot_vector(cv, max_dist, angle)
+                for idx in range(len(xy)):
+                    px, py = xy[idx]
+                    px, py = px * scale_factor, -py * scale_factor
+                    px += org_x
+                    py += org_y
+                    cv.create_line(px-3, py, px+3, py)
+                    cv.create_line(px, py-3, px, py+3)
+                # Create static elements
+                cv.create_line(org_x - 20, org_y, org_x + 20, org_y, fill='red')
+                cv.create_line(org_x, org_y - 60, org_x, org_y + 20, fill='red')
                 
         # the show must go on
         root.after(350, run_show)
@@ -528,22 +558,25 @@ if __name__ == "__main__":
     lidar_pwr.on()
     time.sleep(0.5)
     
-    # Create window
-    root = tk.Tk()
-    cv = tk.Canvas(root, width=800, height=800)
-    cv.pack()
-    
-    # Prepare for end of the show
-    root.bind("q", end_show)
-    root.bind('<Escape>', end_show)
-    
-    # Create lid object on serial port
     lid = YDLidarX2()
-    lid.scale_factor = 0.15
+    print("YDLidarX2 Version:", lid.__version__)
     lid.connect()
     lid.start_scan()
     print("LiDAR started")
     
+    time.sleep(1.5)
+    
+    # Create window
+    root = tk.Tk()
+    cv = tk.Canvas(root, width=800, height=800)
+    cv.pack()
+    width, height = cv.winfo_reqwidth(), cv.winfo_reqheight()
+    org_x, org_y = width // 2, height * 8 // 10
+    scale_factor = 0.15
+    
+    # Prepare for end of the show
+    root.bind("q", end_show)
+    root.bind('<Escape>', end_show)
     running = True
     run_show()
     root.mainloop()
@@ -555,3 +588,11 @@ if __name__ == "__main__":
     lidar_pwr.off()
     print("LiDAR stoped")
     print("Done")
+    
+    """
+    # Show result
+    print(len(xydata))
+    fig, ax = plt.subplots(figsize=(9,9))
+    ax.scatter(xydata[:,0], xydata[:,1], marker='+')
+    plt.show()
+    """
