@@ -22,7 +22,7 @@ class YDLidarX2:
         else:
             self._port = '/dev/ttyAMA0'
         
-        self.__version = 1.03
+        self.__version = 1.05
         self._ser = None
         self._chunk_size = chunk_size    # reasonable range: 1000 ... 10000
         self._min_range = 10			 # minimal measurable distance
