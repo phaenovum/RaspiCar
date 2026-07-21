@@ -67,11 +67,23 @@ int32_t CommandDecoder::get_int(uint8_t *pnt) {
 //-------------------------------------------------------------------------
 // show_info
 void CommandDecoder::show_info(void) {
+  extern Motors motors;
+  extern Battery bat;
+
   uart_puts(uart1, INFO);
   uart_puts(uart1, "\r\nSoftware Version:");
   itoaf(SOFTWARE_VERSION, local_buf, 3, 2, false);
   uart_puts(uart1, local_buf);
-  uart_puts(uart1, "\r\n");
+  uart_puts(uart1, "\r\nMotor ramp: ");
+  itoa(motors.get_ramp(), local_buf, 10);
+  uart_puts(uart1, local_buf); 
+  uart_puts(uart1, "\r\nLimited steps speed: ");
+  itoa(motors.get_defined_steps_speed(), local_buf, 10);
+  uart_puts(uart1, local_buf); 
+  uart_puts(uart1, "\r\nBattery voltage: ");
+  itoaf(bat.get_voltage(), local_buf, 4, 2, false);
+  uart_puts(uart1, local_buf); 
+  uart_puts(uart1, "V\r\n");
 }
 
 
@@ -79,8 +91,24 @@ void CommandDecoder::show_info(void) {
 void CommandDecoder::decode_get_command(uint8_t pnt) {
   uint8_t status = 0;   // 0 -> okay, 1 -> okay, no prompt, 2 -> error
   extern Battery bat;
+  extern Motors motors;
   
   switch (buf[pnt]) {
+
+    case 'b':               // get battery status
+    case 'B':
+      bat.get_decode_status(local_buf);
+      uart_puts(uart1, local_buf);
+      status = 1;
+      break;
+
+    case 'c':               // get motor mode and status
+    case 'C':
+      itoa(motors.get_mode(), local_buf, 10);
+      uart_puts(uart1, local_buf);
+      status = 1;
+      break;
+
     case 'i':               // get info
     case 'I':
       show_info();
@@ -101,10 +129,10 @@ void CommandDecoder::decode_get_command(uint8_t pnt) {
       status = 1;
       break;
 
-    case 's':               // get battery status
+    case 's':               // get defined steps speed
     case 'S':
-      bat.get_decode_status(local_buf);
-      uart_puts(uart1, local_buf);
+      itoa(motors.get_defined_steps_speed(), local_buf, 10);
+      uart_puts(uart1, local_buf); 
       status = 1;
       break;
 
@@ -336,6 +364,16 @@ void CommandDecoder::decode_motor_command(uint8_t pnt) {
   extern LCD_Display display;
 
   switch (buf[pnt]) {
+
+    case 'c':                                 // run a defined number of steps
+    case 'C':
+      pnt += 1;
+      a = get_int(&pnt); 
+      if (a < VALID_LIMIT) {
+        motors.run_defined_steps(a);
+      }
+      break;
+
     case 'd':
     case 'D':                                 // dir
       pnt += 1;
@@ -414,6 +452,19 @@ void CommandDecoder::decode_motor_command(uint8_t pnt) {
         }
       };
       break;
+
+    case 's':
+    case 'S':                         // set speed for the limited mode
+      pnt += 1;
+      a = get_int(&pnt);    
+      if (a < VALID_LIMIT) {
+        motors.set_defined_steps_speed(a);
+      } else {
+        uart_puts(uart1, "Defined steps speed out of range!");
+        uart_puts(uart1, ")\r\n");
+        status = 1;
+      };
+      break;    
       
     default:
       status = 2;
@@ -427,7 +478,7 @@ void CommandDecoder::decode_motor_command(uint8_t pnt) {
     case 1:
       break;
     case 2:
-      uart_puts(uart1, "Config command not recognized: ");
+      uart_puts(uart1, "Motor command not recognized: ");
       uart_puts(uart1, buf);
       uart_puts(uart1, "\r\n");
     default:

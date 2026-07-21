@@ -1,6 +1,5 @@
 #include "motors.h"
 
-
 struct repeating_timer mot_a_timer;
 struct repeating_timer mot_b_timer;
 
@@ -23,12 +22,19 @@ void Motors::init(void) {
   add_repeating_timer_us(b_step_time, mot_b_timer_callback, NULL, &mot_b_timer);
 
   // get ramp from eeprom
- 
   mot_ramp = EEPROM.read(EEPROM_BASE_ADDR + EEPROM_MOTOR_RAMP);
   if ((mot_ramp <= 1) || (mot_ramp >= 50)) {
     mot_ramp = MOT_RAMP;
     EEPROM.write(EEPROM_BASE_ADDR + EEPROM_MOTOR_RAMP, mot_ramp);
   }
+
+  // get defined steps speed from eeprom
+  defined_steps_speed = EEPROM.read(EEPROM_BASE_ADDR + EEPROM_DEFINED_STEPS_SPEED);
+  if ((defined_steps_speed <= RPM_MIN) || (defined_steps_speed >= RPM_MAX)) {
+    defined_steps_speed = DEFINED_STEPS_SPEED;
+    EEPROM.write(EEPROM_BASE_ADDR + EEPROM_DEFINED_STEPS_SPEED, defined_steps_speed);
+  }
+
 }
 
 //----------------------------------------------------------------------
@@ -163,6 +169,7 @@ void Motors::set_b_steptime(uint32_t steptime) {
 void Motors::set_a_rpm(uint32_t rpm) {
   if (rpm == 0) {
     a_step_time_target = MOT_STEP_TIME_MAX;
+    a_enabled = false;
   } else {
     a_step_time_target = CONVERSION_FACTOR / rpm;
     if (a_step_time_target < MOT_STEP_TIME_MIN)
@@ -177,6 +184,7 @@ void Motors::set_a_rpm(uint32_t rpm) {
 void Motors::set_b_rpm(uint32_t rpm) {
   if (rpm == 0) {
     b_step_time_target = MOT_STEP_TIME_MAX;
+    b_enabled = false;
   } else {
     b_step_time_target = CONVERSION_FACTOR / rpm;
     if (b_step_time_target < MOT_STEP_TIME_MIN)
@@ -221,9 +229,17 @@ bool mot_a_timer_callback(struct repeating_timer *t) {
   if (motors.a_enabled) {
     if (digitalRead(MOTA_STEP) == HIGH)
       digitalWrite(MOTA_STEP, LOW);
-    else
+    else {
       digitalWrite(MOTA_STEP, HIGH);
-  }
+      motors.a_step_cnt += 1;
+      if ((motors.mode == 1) && (motors.a_step_cnt == motors.steps_target)) {
+        motors.a_enabled = false;
+        motors.b_enabled = false;
+        motors.mode = 0;
+      };
+    };
+  };
+
   return true;
 }
 
@@ -233,8 +249,57 @@ bool mot_b_timer_callback(struct repeating_timer *t) {
   if (motors.b_enabled) {
     if (digitalRead(MOTB_STEP) == HIGH)
       digitalWrite(MOTB_STEP, LOW);
-    else
+    else {
       digitalWrite(MOTB_STEP, HIGH);
-  }
+      motors.b_step_cnt += 1;
+      if ((motors.mode == 1) && (motors.b_step_cnt == motors.steps_target)) {
+        motors.a_enabled = false;
+        motors.b_enabled = false;
+        motors.mode = 0;
+      };
+    };
+  };
+  
   return true;
 }
+
+//-------------------------------------------------------------------
+int Motors::get_mode(void) {
+  return mode;
+}
+
+//-------------------------------------------------------------------
+void Motors::run_defined_steps(uint32_t steps) {
+  Serial.println(steps);
+
+  // prepare step counters
+  steps_target = steps;
+  a_step_cnt = 0;
+  b_step_cnt = 0;
+  // set motor speed to default value
+  a_step_time_target = CONVERSION_FACTOR / defined_steps_speed;
+  b_step_time_target = CONVERSION_FACTOR / defined_steps_speed;
+  // switch mode to defined number of steps
+  mode = 1;
+  // enable motors
+  a_enabled = true;
+  b_enabled = true;
+
+}
+
+//-------------------------------------------------------------------
+void Motors::set_defined_steps_speed(uint32_t speed) {
+  if ((speed >= RPM_MIN) && (speed <= RPM_MAX)) {
+    if (speed != defined_steps_speed) {
+      defined_steps_speed = speed;
+      EEPROM.write(EEPROM_BASE_ADDR + EEPROM_DEFINED_STEPS_SPEED, defined_steps_speed);
+      EEPROM.commit();
+    }
+  }
+}
+
+//-------------------------------------------------------------------
+int Motors::get_defined_steps_speed(void) {
+  return defined_steps_speed;
+}
+
