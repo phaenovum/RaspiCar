@@ -39,12 +39,14 @@ void Motors::init(void) {
 
 //----------------------------------------------------------------------
 void Motors::set_a_enable(bool status) {
+  mode = 0;
   a_enabled = status;
   if (!a_enabled) a_step_time_target = MOT_STEP_TIME_MAX; 
 }
 
 //----------------------------------------------------------------------
 void Motors::set_b_enable(bool status) {
+  mode = 0;
   b_enabled = status;
   if (!b_enabled) b_step_time_target = MOT_STEP_TIME_MAX; 
 }
@@ -167,6 +169,7 @@ void Motors::set_b_steptime(uint32_t steptime) {
 
 //-------------------------------------------------------------------
 void Motors::set_a_rpm(uint32_t rpm) {
+  mode = 0;
   if (rpm == 0) {
     a_step_time_target = MOT_STEP_TIME_MAX;
     a_enabled = false;
@@ -182,6 +185,7 @@ void Motors::set_a_rpm(uint32_t rpm) {
 
 //-------------------------------------------------------------------
 void Motors::set_b_rpm(uint32_t rpm) {
+  mode = 0;
   if (rpm == 0) {
     b_step_time_target = MOT_STEP_TIME_MAX;
     b_enabled = false;
@@ -273,7 +277,7 @@ void Motors::run_defined_steps(uint32_t steps) {
   Serial.println(steps);
 
   // prepare step counters
-  steps_target = steps;
+  steps_target = steps * 8;
   a_step_cnt = 0;
   b_step_cnt = 0;
   // set motor speed to default value
